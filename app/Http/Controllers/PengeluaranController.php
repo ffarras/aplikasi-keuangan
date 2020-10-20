@@ -69,19 +69,19 @@ class PengeluaranController extends Controller
 
                 $upload = json_encode($data);
             }
-            
+
             $request->tanggal = Carbon::parse($request->tanggal)->format('Y-m-d');
 
             Pengeluaran::create(
                 [
-                'user_id' => $request->admin,
-                'tanggal' => $request->tanggal,
-                'account_id' => $request->account,
-                'kategori_id' => $request->kategori,
-                'aktivitas' => $request->aktivitas,
-                'jumlah'=> str_replace( ',', '', $request->jumlah),
-                'bukti' => $upload,
-                'catatan' => empty($request->catatan) ? '' : $request->catatan,
+                    'user_id' => $request->admin,
+                    'tanggal' => $request->tanggal,
+                    'account_id' => $request->account,
+                    'kategori_id' => $request->kategori,
+                    'aktivitas' => $request->aktivitas,
+                    'jumlah' => str_replace(',', '', $request->jumlah),
+                    'bukti' => $upload,
+                    'catatan' => empty($request->catatan) ? '' : $request->catatan,
                 ]
             );
 
@@ -141,78 +141,15 @@ class PengeluaranController extends Controller
             'bukti.*' => 'image|mimes:jpeg,png,jpg|max:2048',
         ]);
 
-        $file = null;
-        
+        $file = $upload = null;
+
         try {
             DB::beginTransaction();
             $pengeluaran = Pengeluaran::find($request->id);
             $account = Account::where('id', $pengeluaran->account_id)->first();
 
-            if ($request->imagecheck) {
-                if ($request->hasfile('bukti')) {
-                    foreach (json_decode($pengeluaran->bukti) as $foto) {
-                        $data[] = $foto;
-                    }
-
-                    foreach ($request->imagecheck as $check) {
-                        $data = array_diff($data, array($check));
-                        File::delete('uploads/pengeluaran/'.$check);                
-                    }
-
-                    foreach ($request->file('bukti') as $file) {
-                        $namafile = time() . '-' . $file->getClientOriginalName();
-                        $file->move('uploads/pengeluaran', $namafile);
-                        $data[] = $namafile; 
-                    }
-                } else {
-                    foreach (json_decode($pengeluaran->bukti) as $foto) {
-                        $data[] = $foto;
-                    }
-        
-                    foreach ($request->imagecheck as $check) {
-                        $data = array_diff($data, array($check));
-                        File::delete('uploads/pengeluaran/'.$check);
-                    }
-                }
-
-                $upload = json_encode($data);
-            }
-
-            if (($request->hasfile('bukti')) && (empty($request->imagecheck))) {
-                foreach (json_decode($pengeluaran->bukti) as $foto) {
-                    $data[] = $foto;
-                }
-        
-                foreach ($request->file('bukti') as $file) {
-                    $namafile = time() . '-' . $file->getClientOriginalName();
-                    $file->move('uploads/pengeluaran', $namafile);
-                    $data[] = $namafile;
-                } 
-
-                $upload = json_encode($data);
-            }
-
-            if ($account->id <> $request->account) {
-                $accountbaru = Account::where('id', $request->account)->first();
-                $account->saldo = $account->saldo + str_replace(',', '', $pengeluaran->jumlah);
-                $accountbaru->saldo = $accountbaru->saldo - str_replace(',', '', $request->jumlah);
-                $accountbaru->save();
-            } else {
-                $account->saldo = ($account->saldo + str_replace(',', '', $pengeluaran->jumlah)) - str_replace(',', '', $request->jumlah);
-            }
-
-            $account->save();
-            
-            $pengeluaran->user_id = $request->admin;
-            $pengeluaran->tanggal = Carbon::parse($request->tanggal)->format('Y-m-d');
-            $pengeluaran->account_id = $request->account;
-            $pengeluaran->kategori_id = $request->kategori;
-            $pengeluaran->aktivitas = $request->aktivitas;
-            $pengeluaran->jumlah = str_replace( ',', '', $request->jumlah);
-            $pengeluaran->bukti = empty($upload) ? $pengeluaran->bukti : $upload;
-            $pengeluaran->catatan = empty($request->catatan) ? '' : $request->catatan;
-
-            $pengeluaran->save();
+            $upload = $this->checkImage($request, $pengeluaran, $upload, $file);
+            $this->saveUpdate($request, $pengeluaran, $account, $upload);
 
             DB::commit();
         } catch (\Exception $exception) {
@@ -221,6 +158,80 @@ class PengeluaranController extends Controller
         }
 
         return redirect()->route('pengeluaran.index')->withStatus('Pengeluaran berhasil diupdate');
+    }
+
+    public function checkImage(Request $request, Pengeluaran $pengeluaran, $upload, $file)
+    {
+        if ($request->imagecheck) {
+            if ($request->hasfile('bukti')) {
+                foreach (json_decode($pengeluaran->bukti) as $foto) {
+                    $data[] = $foto;
+                }
+
+                foreach ($request->imagecheck as $check) {
+                    $data = array_diff($data, array($check));
+                    File::delete('uploads/pengeluaran/' . $check);
+                }
+
+                foreach ($request->file('bukti') as $file) {
+                    $namafile = time() . '-' . $file->getClientOriginalName();
+                    $file->move('uploads/pengeluaran', $namafile);
+                    $data[] = $namafile;
+                }
+            } else {
+                foreach (json_decode($pengeluaran->bukti) as $foto) {
+                    $data[] = $foto;
+                }
+
+                foreach ($request->imagecheck as $check) {
+                    $data = array_diff($data, array($check));
+                    File::delete('uploads/pengeluaran/' . $check);
+                }
+            }
+
+            $upload = json_encode($data);
+        }
+
+        if (($request->hasfile('bukti')) && (empty($request->imagecheck))) {
+            foreach (json_decode($pengeluaran->bukti) as $foto) {
+                $data[] = $foto;
+            }
+
+            foreach ($request->file('bukti') as $file) {
+                $namafile = time() . '-' . $file->getClientOriginalName();
+                $file->move('uploads/pengeluaran', $namafile);
+                $data[] = $namafile;
+            }
+
+            $upload = json_encode($data);
+        }
+
+        return $upload;
+    }
+
+    public function saveUpdate(Request $request, Pengeluaran $pengeluaran, Account $account, $upload)
+    {
+        if ($account->id <> $request->account) {
+            $accountbaru = Account::where('id', $request->account)->first();
+            $account->saldo = $account->saldo + str_replace(',', '', $pengeluaran->jumlah);
+            $accountbaru->saldo = $accountbaru->saldo - str_replace(',', '', $request->jumlah);
+            $accountbaru->save();
+        } else {
+            $account->saldo = ($account->saldo + str_replace(',', '', $pengeluaran->jumlah)) - str_replace(',', '', $request->jumlah);
+        }
+
+        $account->save();
+
+        $pengeluaran->user_id = $request->admin;
+        $pengeluaran->tanggal = Carbon::parse($request->tanggal)->format('Y-m-d');
+        $pengeluaran->account_id = $request->account;
+        $pengeluaran->kategori_id = $request->kategori;
+        $pengeluaran->aktivitas = $request->aktivitas;
+        $pengeluaran->jumlah = str_replace(',', '', $request->jumlah);
+        $pengeluaran->bukti = empty($upload) ? $pengeluaran->bukti : $upload;
+        $pengeluaran->catatan = empty($request->catatan) ? '' : $request->catatan;
+
+        $pengeluaran->save();
     }
 
     /**
@@ -235,7 +246,7 @@ class PengeluaranController extends Controller
             DB::beginTransaction();
             if ($pengeluaran->bukti) {
                 foreach (json_decode($pengeluaran->bukti) as $foto) {
-                    File::delete('uploads/pengeluaran/'.$foto);
+                    File::delete('uploads/pengeluaran/' . $foto);
                 }
             }
 
@@ -254,30 +265,27 @@ class PengeluaranController extends Controller
     }
 
     public function dataTable()
-    { 
+    {
         $model = Pengeluaran::with('account')->with('kategori');
 
-        $start_date = (!empty($_GET["start_date"])) ? ($_GET["start_date"]) : ('');
-        $end_date = (!empty($_GET["end_date"])) ? ($_GET["end_date"]) : ('');
- 
-        if ($start_date && $end_date)
-        {
+        $start_date = (!empty(filter_input(INPUT_GET, 'start_date'))) ? (filter_input(INPUT_GET, 'start_date')) : ('');
+        $end_date = (!empty(filter_input(INPUT_GET, 'end_date'))) ? (filter_input(INPUT_GET, 'end_date')) : ('');
+
+        if ($start_date && $end_date) {
             $start_date = date('Y-m-d', strtotime($start_date));
             $end_date = date('Y-m-d', strtotime($end_date));
-            
+
             $model->whereRaw("date(pengeluaran.tanggal) >= '" . $start_date . "' AND date(pengeluaran.tanggal) <= '" . $end_date . "'");
-        }
-        else 
-        {
+        } else {
             $model->whereMonth('tanggal', Carbon::now()->month)
-                  ->whereYear('tanggal', Carbon::now()->year);
+                ->whereYear('tanggal', Carbon::now()->year);
         }
 
         return DataTables::of($model)
             ->addColumn('action', function ($model) {
                 return '
-                <a href="'. route ('pengeluaran.show', $model->id) .'" class="btn btn-success btn-xs"><i class="la flaticon-search-2"></i></a>
-                <a href="'. route ('pengeluaran.edit', $model->id) .'" class="btn btn-warning btn-xs"><i class="fas fa-pen"></i></a>  
+                <a href="' . route('pengeluaran.show', $model->id) . '" class="btn btn-success btn-xs"><i class="la flaticon-search-2"></i></a>
+                <a href="' . route('pengeluaran.edit', $model->id) . '" class="btn btn-warning btn-xs"><i class="fas fa-pen"></i></a>  
                 <button class="btn btn-xs btn-danger btn-delete" data-remote="/pengeluaran/' . $model->id . '"><i class="fas fa-trash"></i></button>';
             })
             ->addIndexColumn()

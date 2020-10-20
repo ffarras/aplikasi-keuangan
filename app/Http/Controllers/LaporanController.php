@@ -25,7 +25,7 @@ class LaporanController extends Controller
 
         $total = $datalap['total'];
         $union = $datalap['union'];
-        
+
         // if (empty($request->start_date) && empty($request->end_date)) {
         //     switch ($request->jenis_transaksi) {
         //     case "pemasukan":
@@ -54,7 +54,7 @@ class LaporanController extends Controller
     }
 
     public function laporanPDF($startdate, $enddate, $jenis)
-    {       
+    {
         $datalap = $this->datalap($startdate, $enddate, $jenis);
 
         $total = $datalap['total'];
@@ -62,12 +62,12 @@ class LaporanController extends Controller
 
         $pdf = PDF::setOptions(['dpi' => 150, 'defaultFont' => 'sans-serif'])
             ->loadView('laporan.laporanpdf', [
-                    'startdate' => $startdate,
-                    'enddate' => $enddate,
-                    'total' => $total,
-                    'union' => $union
+                'startdate' => $startdate,
+                'enddate' => $enddate,
+                'total' => $total,
+                'union' => $union
             ]);
-        
+
         return $pdf->stream('Laporan Keuangan Azura Labs.pdf');
     }
 
@@ -81,7 +81,7 @@ class LaporanController extends Controller
         $fields = [
             'id',
             'account_id',
-            'tanggal', 
+            'tanggal',
             'aktivitas',
             'jumlah'
         ];
@@ -90,91 +90,25 @@ class LaporanController extends Controller
         $pemasukan = Pemasukan::with('account')->select(array_merge($fields, [DB::raw('"Pemasukan" as jenis')]));
 
         switch ($jenis) {
-        case "pemasukan":
-            $pemasukan->whereRaw("date(pemasukan.tanggal) >= '" . $startdate . "' AND date(pemasukan.tanggal) <= '" . $enddate . "'");
-            $total = $pemasukan->sum('jumlah');
-            $union = $pemasukan->orderBy('tanggal', 'asc')->get();
-            break;
-        case "pengeluaran":
-            $pengeluaran->whereRaw("date(pengeluaran.tanggal) >= '" . $startdate . "' AND date(pengeluaran.tanggal) <= '" . $enddate . "'");
-            $total = 0-($pengeluaran->sum('jumlah'));
-            $union = $pengeluaran->orderBy('tanggal', 'asc')->get();
-            break;
-        case "semua":
-            $pengeluaran->whereRaw("date(pengeluaran.tanggal) >= '" . $startdate . "' AND date(pengeluaran.tanggal) <= '" . $enddate . "'");
-            $pemasukan->whereRaw("date(pemasukan.tanggal) >= '" . $startdate . "' AND date(pemasukan.tanggal) <= '" . $enddate . "'");
-            $totalpem = $pemasukan->sum('jumlah');
-            $totalpeng = $pengeluaran->sum('jumlah');    
-            $total = $totalpem-$totalpeng;
-            $union = $pemasukan->union($pengeluaran)->orderBy('tanggal', 'asc')->get(); 
+            case "pemasukan":
+                $pemasukan->whereRaw("date(pemasukan.tanggal) >= '" . $startdate . "' AND date(pemasukan.tanggal) <= '" . $enddate . "'");
+                $total = $pemasukan->sum('jumlah');
+                $union = $pemasukan->orderBy('tanggal', 'asc')->get();
+                break;
+            case "pengeluaran":
+                $pengeluaran->whereRaw("date(pengeluaran.tanggal) >= '" . $startdate . "' AND date(pengeluaran.tanggal) <= '" . $enddate . "'");
+                $total = 0 - ($pengeluaran->sum('jumlah'));
+                $union = $pengeluaran->orderBy('tanggal', 'asc')->get();
+                break;
+            case "semua":
+                $pengeluaran->whereRaw("date(pengeluaran.tanggal) >= '" . $startdate . "' AND date(pengeluaran.tanggal) <= '" . $enddate . "'");
+                $pemasukan->whereRaw("date(pemasukan.tanggal) >= '" . $startdate . "' AND date(pemasukan.tanggal) <= '" . $enddate . "'");
+                $totalpem = $pemasukan->sum('jumlah');
+                $totalpeng = $pengeluaran->sum('jumlah');
+                $total = $totalpem - $totalpeng;
+                $union = $pemasukan->union($pengeluaran)->orderBy('tanggal', 'asc')->get();
         }
 
         return array('total' => $total, 'union' => $union);
-    }
-
-    /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
-    public function store(Request $request)
-    {
-        //
-    }
-
-    /**
-     * Display the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function show($id)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function edit($id)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function update(Request $request, $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function destroy($id)
-    {
-        //
     }
 }

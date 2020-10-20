@@ -64,18 +64,18 @@ class PemasukanController extends Controller
                     $file->move('uploads/pemasukan', $namafile);
                     $data[] = $namafile;
                 }
-    
+
                 $upload = json_encode($data);
-            } 
-    
+            }
+
             $request->tanggal = Carbon::parse($request->tanggal)->format('Y-m-d');
-    
+
             Pemasukan::create([
                 'user_id' => $request->admin,
                 'tanggal' => $request->tanggal,
                 'account_id' => $request->account,
                 'aktivitas' => $request->aktivitas,
-                'jumlah'=> str_replace( ',', '', $request->jumlah),
+                'jumlah' => str_replace(',', '', $request->jumlah),
                 'bukti' => empty($upload) ? '' : $upload,
                 'catatan' => empty($request->catatan) ? '' : $request->catatan,
             ]);
@@ -133,52 +133,37 @@ class PemasukanController extends Controller
             'jumlah' => 'required',
             'bukti.*' => 'image|mimes:jpeg,png,jpg|max:2048',
         ]);
-        
-        $file = null;
+
+        $file = $upload = null;
 
         try {
             DB::beginTransaction();
             $pemasukan = Pemasukan::find($request->id);
             $account = Account::where('id', $pemasukan->account_id)->first();
 
-            $pemasukan->user_id = $request->admin;
-            $pemasukan->tanggal = Carbon::parse($request->tanggal)->format('Y-m-d');
-            $pemasukan->aktivitas = $request->aktivitas;
-            if ($request->imagecheck) {
-                if ($request->hasfile('bukti')) {
-                    foreach (json_decode($pemasukan->bukti) as $foto) {
-                        $data[] = $foto;
-                    }
+            $upload = $this->checkImage($pemasukan, $request, $upload, $file);
+            $this->saveUpdate($pemasukan, $account, $request, $upload);
 
-                    foreach ($request->imagecheck as $check) {
-                        $data = array_diff($data, array($check));
-                        File::delete('uploads/pemasukan/'.$check);
-                    }
+            DB::commit();
+        } catch (\Exception $exception) {
+            DB::rollback();
+            throw $exception;
+        }
 
-                    foreach ($request->file('bukti') as $file) {
-                        $namafile = time() . '-' . $file->getClientOriginalName();
-                        $file->move('uploads/pemasukan', $namafile);
-                        $data[] = $namafile;
-                    }
-                } else {
-                    foreach (json_decode($pemasukan->bukti) as $foto) {
-                        $data[] = $foto;
-                    }
+        return redirect()->route('pemasukan.index')->withStatus('Pemasukan berhasil diupdate');
+    }
 
-                    foreach ($request->imagecheck as $check) {
-                        $data = array_diff($data, array($check));
-                        File::delete('uploads/pemasukan/'.$check);
-                    }
+    public function checkImage(Pemasukan $pemasukan, Request $request, $upload, $file)
+    {
+        if ($request->imagecheck) {
+            if ($request->hasfile('bukti')) {
+                foreach (json_decode($pemasukan->bukti) as $foto) {
+                    $data[] = $foto;
                 }
 
-                $upload = json_encode($data);
-            }
-
-            if (($request->hasfile('bukti')) && (empty($request->imagecheck))) {
-                if ($pemasukan->bukti) {
-                    foreach (json_decode($pemasukan->bukti) as $foto) {
-                        $data[] = $foto;
-                    }
+                foreach ($request->imagecheck as $check) {
+                    $data = array_diff($data, array($check));
+                    File::delete('uploads/pemasukan/' . $check);
                 }
 
                 foreach ($request->file('bukti') as $file) {
@@ -186,35 +171,62 @@ class PemasukanController extends Controller
                     $file->move('uploads/pemasukan', $namafile);
                     $data[] = $namafile;
                 }
-
-                $upload = json_encode($data);
-            }
-            $pemasukan->bukti = empty($upload) ? $pemasukan->bukti : $upload;
-            $pemasukan->catatan = empty($request->catatan) ? $pemasukan->catatan : $request->catatan;
-            
-            if ($account->id <> $request->account) {
-                $accountbaru = Account::where('id', $request->account)->first();
-                $account->saldo = $account->saldo - str_replace(',', '', $pemasukan->jumlah);
-                $accountbaru->saldo = $accountbaru->saldo + str_replace(',', '', $request->jumlah);
-                $accountbaru->save();
             } else {
-                $account->saldo = ($account->saldo - str_replace(',', '', $pemasukan->jumlah)) + str_replace(',', '', $request->jumlah);
+                foreach (json_decode($pemasukan->bukti) as $foto) {
+                    $data[] = $foto;
+                }
+
+                foreach ($request->imagecheck as $check) {
+                    $data = array_diff($data, array($check));
+                    File::delete('uploads/pemasukan/' . $check);
+                }
             }
 
-            $account->save();
-
-            $pemasukan->account_id = $request->account;
-            $pemasukan->jumlah = str_replace(',', '', $request->jumlah);
-
-            $pemasukan->save();
-
-            DB::commit();
-        } catch (\Exception $exception) {
-            DB::rollback();
-            throw $exception;
+            $upload = json_encode($data);
         }
-        
-        return redirect()->route('pemasukan.index')->withStatus('Pemasukan berhasil diupdate');
+
+        if (($request->hasfile('bukti')) && (empty($request->imagecheck))) {
+            if ($pemasukan->bukti) {
+                foreach (json_decode($pemasukan->bukti) as $foto) {
+                    $data[] = $foto;
+                }
+            }
+
+            foreach ($request->file('bukti') as $file) {
+                $namafile = time() . '-' . $file->getClientOriginalName();
+                $file->move('uploads/pemasukan', $namafile);
+                $data[] = $namafile;
+            }
+
+            $upload = json_encode($data);
+        }
+
+        return $upload;
+    }
+
+    public function saveUpdate(Pemasukan $pemasukan, Account $account, Request $request, $upload)
+    {
+        $pemasukan->user_id = $request->admin;
+        $pemasukan->tanggal = Carbon::parse($request->tanggal)->format('Y-m-d');
+        $pemasukan->aktivitas = $request->aktivitas;
+        $pemasukan->bukti = empty($upload) ? $pemasukan->bukti : $upload;
+        $pemasukan->catatan = empty($request->catatan) ? $pemasukan->catatan : $request->catatan;
+
+        if ($account->id <> $request->account) {
+            $accountbaru = Account::where('id', $request->account)->first();
+            $account->saldo = $account->saldo - str_replace(',', '', $pemasukan->jumlah);
+            $accountbaru->saldo = $accountbaru->saldo + str_replace(',', '', $request->jumlah);
+            $accountbaru->save();
+        } else {
+            $account->saldo = ($account->saldo - str_replace(',', '', $pemasukan->jumlah)) + str_replace(',', '', $request->jumlah);
+        }
+
+        $account->save();
+
+        $pemasukan->account_id = $request->account;
+        $pemasukan->jumlah = str_replace(',', '', $request->jumlah);
+
+        $pemasukan->save();
     }
 
     /**
@@ -229,7 +241,7 @@ class PemasukanController extends Controller
             DB::beginTransaction();
             if ($pemasukan->bukti) {
                 foreach (json_decode($pemasukan->bukti) as $foto) {
-                    File::delete('uploads/pemasukan/'.$foto);
+                    File::delete('uploads/pemasukan/' . $foto);
                 }
             }
             $account = Account::where('id', $pemasukan->account_id)->first();
@@ -242,7 +254,7 @@ class PemasukanController extends Controller
             DB::rollback();
             throw $exception;
         }
-        
+
         return redirect()->route('pemasukan.index')->withStatus('Pemasukan berhasil dihapus');
     }
 
@@ -250,24 +262,24 @@ class PemasukanController extends Controller
     {
         $model = Pemasukan::with('account');
 
-        $start_date = (!empty($_GET["start_date"])) ? ($_GET["start_date"]) : ('');
-        $end_date = (!empty($_GET["end_date"])) ? ($_GET["end_date"]) : ('');
- 
+        $start_date = (!empty(filter_input(INPUT_GET, 'start_date'))) ? (filter_input(INPUT_GET, 'start_date')) : ('');
+        $end_date = (!empty(filter_input(INPUT_GET, 'end_date'))) ? (filter_input(INPUT_GET, 'end_date')) : ('');
+
         if ($start_date && $end_date) {
             $start_date = date('Y-m-d', strtotime($start_date));
             $end_date = date('Y-m-d', strtotime($end_date));
-            
+
             $model->whereRaw("date(pemasukan.tanggal) >= '" . $start_date . "' AND date(pemasukan.tanggal) <= '" . $end_date . "'");
         } else {
             $model->whereMonth('tanggal', Carbon::now()->month)
-                  ->whereYear('tanggal', Carbon::now()->year);
+                ->whereYear('tanggal', Carbon::now()->year);
         }
 
         return DataTables::of($model)
             ->addColumn('action', function ($model) {
                 return '
-                <a href="'. route ('pemasukan.show', $model->id) .'" class="btn btn-success btn-xs"><i class="la flaticon-search-2"></i></a>
-                <a href="'. route ('pemasukan.edit', $model->id) .'" class="btn btn-warning btn-xs"><i class="fas fa-pen"></i></a>  
+                <a href="' . route('pemasukan.show', $model->id) . '" class="btn btn-success btn-xs"><i class="la flaticon-search-2"></i></a>
+                <a href="' . route('pemasukan.edit', $model->id) . '" class="btn btn-warning btn-xs"><i class="fas fa-pen"></i></a>  
                 <button class="btn btn-xs btn-danger btn-delete" data-remote="/pemasukan/' . $model->id . '"><i class="fas fa-trash"></i></button>';
             })
             ->addIndexColumn()

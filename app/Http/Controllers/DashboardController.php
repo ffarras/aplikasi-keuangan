@@ -11,13 +11,13 @@ use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
-    public function dataHeader(Request $request)
+    public function dataHeader()
     {
         Carbon::setWeekStartsAt(Carbon::SUNDAY);
         $pemasukan = Pemasukan::whereMonth('tanggal', Carbon::now()->month)
-                     ->count();
+            ->count();
         $totalpemasukan = Pemasukan::whereMonth('tanggal', Carbon::now()->month)
-                     ->sum('jumlah');
+            ->sum('jumlah');
         $totalpemasukan = 'Rp ' . number_format($totalpemasukan, 0, '', ',');
         $pemasukan7day = DB::select(
             'SELECT tanggal AS tanggal, COUNT(id) AS qty
@@ -29,9 +29,9 @@ class DashboardController extends Controller
         );
 
         $pengeluaran = Pengeluaran::whereMonth('tanggal', Carbon::now()->month)
-                        ->count();
+            ->count();
         $totalpengeluaran = Pengeluaran::whereMonth('tanggal', Carbon::now()->month)
-                        ->sum('jumlah');
+            ->sum('jumlah');
         $totalpengeluaran = 'Rp ' . number_format($totalpengeluaran, 0, '', ',');
         $pengeluaran7day = DB::select(
             'SELECT tanggal AS tanggal, COUNT(id) AS qty
@@ -43,10 +43,10 @@ class DashboardController extends Controller
         );
 
         $reimburse = Hutang::whereMonth('tanggal', Carbon::now()->month)
-                    ->count();
+            ->count();
         $totalreimburse = Hutang::whereMonth('tanggal', Carbon::now()->month)
-                    ->sum('jumlah');
-        $totalreimburse = 'Rp ' . number_format($totalreimburse, 0, '', ','); 
+            ->sum('jumlah');
+        $totalreimburse = 'Rp ' . number_format($totalreimburse, 0, '', ',');
         $reimburse7day = DB::select(
             'SELECT tanggal AS tanggal, COUNT(id) AS qty
             FROM hutang
@@ -55,7 +55,7 @@ class DashboardController extends Controller
             
             LIMIT 7;'
         );
-        
+
         $result = array(
             'jmlPemasukan' => $pemasukan,
             'last7Pemasukan' => $pemasukan7day,
