@@ -141,7 +141,14 @@ class PemasukanController extends Controller
             $pemasukan = Pemasukan::find($request->id);
             $account = Account::where('id', $pemasukan->account_id)->first();
 
-            $upload = $this->checkImage($pemasukan, $request, $upload, $file);
+            if ($request->imagecheck) {
+                $upload = $this->checkImage($pemasukan, $request, $upload, $file);
+            }
+
+            if (($request->hasfile('bukti')) && (empty($request->imagecheck))) {
+                $upload = $this->emptyCheck($pemasukan, $request, $upload, $file);
+            }
+
             $this->saveUpdate($pemasukan, $account, $request, $upload);
 
             DB::commit();
@@ -155,41 +162,14 @@ class PemasukanController extends Controller
 
     public function checkImage(Pemasukan $pemasukan, Request $request, $upload, $file)
     {
-        if ($request->imagecheck) {
-            if ($request->hasfile('bukti')) {
-                foreach (json_decode($pemasukan->bukti) as $foto) {
-                    $data[] = $foto;
-                }
-
-                foreach ($request->imagecheck as $check) {
-                    $data = array_diff($data, array($check));
-                    File::delete('uploads/pemasukan/' . $check);
-                }
-
-                foreach ($request->file('bukti') as $file) {
-                    $namafile = time() . '-' . $file->getClientOriginalName();
-                    $file->move('uploads/pemasukan', $namafile);
-                    $data[] = $namafile;
-                }
-            } else {
-                foreach (json_decode($pemasukan->bukti) as $foto) {
-                    $data[] = $foto;
-                }
-
-                foreach ($request->imagecheck as $check) {
-                    $data = array_diff($data, array($check));
-                    File::delete('uploads/pemasukan/' . $check);
-                }
+        if ($request->hasfile('bukti')) {
+            foreach (json_decode($pemasukan->bukti) as $foto) {
+                $data[] = $foto;
             }
 
-            $upload = json_encode($data);
-        }
-
-        if (($request->hasfile('bukti')) && (empty($request->imagecheck))) {
-            if ($pemasukan->bukti) {
-                foreach (json_decode($pemasukan->bukti) as $foto) {
-                    $data[] = $foto;
-                }
+            foreach ($request->imagecheck as $check) {
+                $data = array_diff($data, array($check));
+                File::delete('uploads/pemasukan/' . $check);
             }
 
             foreach ($request->file('bukti') as $file) {
@@ -197,9 +177,37 @@ class PemasukanController extends Controller
                 $file->move('uploads/pemasukan', $namafile);
                 $data[] = $namafile;
             }
+        } else {
+            foreach (json_decode($pemasukan->bukti) as $foto) {
+                $data[] = $foto;
+            }
 
-            $upload = json_encode($data);
+            foreach ($request->imagecheck as $check) {
+                $data = array_diff($data, array($check));
+                File::delete('uploads/pemasukan/' . $check);
+            }
         }
+
+        $upload = json_encode($data);
+
+        return $upload;
+    }
+
+    public function emptyCheck(Pemasukan $pemasukan, Request $request, $upload, $file)
+    {
+        if ($pemasukan->bukti) {
+            foreach (json_decode($pemasukan->bukti) as $foto) {
+                $data[] = $foto;
+            }
+        }
+
+        foreach ($request->file('bukti') as $file) {
+            $namafile = time() . '-' . $file->getClientOriginalName();
+            $file->move('uploads/pemasukan', $namafile);
+            $data[] = $namafile;
+        }
+
+        $upload = json_encode($data);
 
         return $upload;
     }

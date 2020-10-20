@@ -178,7 +178,14 @@ class HutangController extends Controller
             $account = Account::where('id', $hutang->account_id)->first();
             $upload = $hutang->bukti;
 
-            $upload = $this->checkImage($request, $hutang, $upload, $file);
+            if ($request->imagecheck) {
+                $upload = $this->checkImage($request, $hutang, $upload, $file);
+            }
+
+            if (($request->hasfile('bukti')) && (empty($request->imagecheck))) {
+                $upload = $this->emptyCheck($request, $hutang, $upload, $file);
+            }
+
             $this->saveUpdate($request, $hutang, $pengeluaran, $account, $upload);
 
             DB::commit();
@@ -192,45 +199,15 @@ class HutangController extends Controller
 
     public function checkImage(Request $request, Hutang $hutang, $upload, $file)
     {
-        if ($request->imagecheck) {
-            if ($request->hasfile('bukti')) {
-                foreach (json_decode($hutang->bukti) as $foto) {
-                    $data[] = $foto;
-                }
-
-                foreach ($request->imagecheck as $check) {
-                    $data = array_diff($data, array($check));
-                    File::delete('uploads/hutang/' . $check);
-                    File::delete('uploads/pengeluaran/' . $check);
-                }
-
-                foreach ($request->file('bukti') as $file) {
-                    $namafile = time() . '-' . $file->getClientOriginalName();
-                    $folderhut = 'uploads/hutang/';
-                    $folderkel = 'uploads/pengeluaran/';
-                    $file->move('uploads/hutang', $namafile);
-                    copy($folderhut . $namafile, $folderkel . $namafile);
-                    $data[] = $namafile;
-                }
-            } else {
-                foreach (json_decode($hutang->bukti) as $foto) {
-                    $data[] = $foto;
-                }
-
-                foreach ($request->imagecheck as $check) {
-                    $data = array_diff($data, array($check));
-                    File::delete('uploads/hutang/' . $check);
-                    File::delete('uploads/pengeluaran/' . $check);
-                }
+        if ($request->hasfile('bukti')) {
+            foreach (json_decode($hutang->bukti) as $foto) {
+                $data[] = $foto;
             }
-            $upload = json_encode($data);
-        }
 
-        if (($request->hasfile('bukti')) && (empty($request->imagecheck))) {
-            if ($hutang->bukti) {
-                foreach (json_decode($hutang->bukti) as $foto) {
-                    $data[] = $foto;
-                }
+            foreach ($request->imagecheck as $check) {
+                $data = array_diff($data, array($check));
+                File::delete('uploads/hutang/' . $check);
+                File::delete('uploads/pengeluaran/' . $check);
             }
 
             foreach ($request->file('bukti') as $file) {
@@ -241,9 +218,40 @@ class HutangController extends Controller
                 copy($folderhut . $namafile, $folderkel . $namafile);
                 $data[] = $namafile;
             }
+        } else {
+            foreach (json_decode($hutang->bukti) as $foto) {
+                $data[] = $foto;
+            }
 
-            $upload = json_encode($data);
+            foreach ($request->imagecheck as $check) {
+                $data = array_diff($data, array($check));
+                File::delete('uploads/hutang/' . $check);
+                File::delete('uploads/pengeluaran/' . $check);
+            }
         }
+        $upload = json_encode($data);
+
+        return $upload;
+    }
+
+    public function emptyCheck(Request $request, Hutang $hutang, $upload, $file)
+    {
+        if ($hutang->bukti) {
+            foreach (json_decode($hutang->bukti) as $foto) {
+                $data[] = $foto;
+            }
+        }
+
+        foreach ($request->file('bukti') as $file) {
+            $namafile = time() . '-' . $file->getClientOriginalName();
+            $folderhut = 'uploads/hutang/';
+            $folderkel = 'uploads/pengeluaran/';
+            $file->move('uploads/hutang', $namafile);
+            copy($folderhut . $namafile, $folderkel . $namafile);
+            $data[] = $namafile;
+        }
+
+        $upload = json_encode($data);
 
         return $upload;
     }
