@@ -92,18 +92,4 @@ class PegawaiController extends Controller
 
         return redirect()->route('pegawai.index')->withStatus('Data berhasil dihapus');
     }
-
-    public function dataTable()
-    {
-        $model = Pegawai::query();
-        return DataTables::of($model)
-            ->addColumn('action', function ($model) {
-                return '
-                <a href="' . route('pegawai.edit', $model->id) . '" class="btn btn-warning btn-xs"><i class="fas fa-pen"></i></a>  
-                <button class="btn btn-xs btn-danger btn-delete" data-remote="/pegawai/' . $model->id . '"><i class="fas fa-trash"></i></button>';
-            })
-            ->addIndexColumn()
-            ->rawColumns(['action'])
-            ->make(true);
-    }
 }

@@ -329,38 +329,4 @@ class HutangController extends Controller
 
         return redirect()->route('hutang.index')->withStatus('Reimburse berhasil dihapus');
     }
-
-    public function dataTable()
-    {
-        $model = Hutang::with('pegawai')->with('kategori');
-
-        $start_date = (!empty(filter_input(INPUT_GET, 'start_date'))) ? (filter_input(INPUT_GET, 'start_date')) : ('');
-        $end_date = (!empty(filter_input(INPUT_GET, 'end_date'))) ? (filter_input(INPUT_GET, 'end_date')) : ('');
-
-        if ($start_date && $end_date) {
-            $start_date = date('Y-m-d', strtotime($start_date));
-            $end_date = date('Y-m-d', strtotime($end_date));
-
-            $model->whereRaw("date(hutang.tanggal) >= '" . $start_date . "' AND date(hutang.tanggal) <= '" . $end_date . "'");
-        }
-
-
-        return DataTables::of($model)
-            ->addColumn('action', function ($model) {
-                $action = '';
-                if ($model->status == "Clear") {
-                    $action .= '
-                    <a href="' . route('hutang.show', $model->id) . '" class="btn btn-success btn-xs"><i class="la flaticon-search-2"></i></a>
-                    <button class="btn btn-xs btn-danger btn-delete" data-remote="/hutang/' . $model->id . '"><i class="fas fa-trash"></i></button>';
-                } else {
-                    $action .= '<a href="' . route('hutang.show', $model->id) . '" class="btn btn-success btn-xs"><i class="la flaticon-search-2"></i></a>
-                    <a href="' . route('hutang.edit', $model->id) . '" class="btn btn-warning btn-xs"><i class="fas fa-pen"></i></a>  
-                    <button class="btn btn-xs btn-danger btn-delete" data-remote="/hutang/' . $model->id . '"><i class="fas fa-trash"></i></button>';
-                }
-                return $action;
-            })
-            ->addIndexColumn()
-            ->rawColumns(['action'])
-            ->make(true);
-    }
 }
